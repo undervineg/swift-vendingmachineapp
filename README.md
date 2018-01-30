@@ -845,12 +845,14 @@ sum 같은 속성은 segments를 매번 reduce하고 있습니다. 초당 60번�
 - 뷰 크기가 변경되면 bounds를 이용하여 원 그림.
 
 ```swift
-    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
     status = touches.first?.phase
     guard let beganPosition = beganPosition else { return }
     guard let currPosition = touches.first?.location(in: self) else { return }
+    // 이전 프레임 사이즈
     let prevWidth = frame.size.width
     let prevHeight = frame.size.height
+    // 반경 대비 현재 터치 위치부터 터치 시작 위치까지 움직인 거리로 scaleFactor 계산
     let movedDistance = currPosition.distance(from: beganPosition)
     let scaleFactor: CGFloat = movedDistance/radius*20
     // 원점과의 거리가 멀어졌다면 scaleFactor 만큼 뷰 크기 확대. 이 때, 부모 뷰의 경계를 넘으면 안 된다.
@@ -864,8 +866,10 @@ sum 같은 속성은 segments를 매번 reduce하고 있습니다. 초당 60번�
         frame.size.width -= scaleFactor
         frame.size.height -= scaleFactor
     }
+    // 프레임 위치 변경(좌상단 점)
     frame.origin.x -= (frame.size.width - prevWidth)/2
     frame.origin.y -= (frame.size.height - prevHeight)/2
+    // draw() 함수 호출하여 다시 그림
     setNeedsDisplay()
 }
 ```
