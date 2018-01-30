@@ -828,6 +828,101 @@ override var canBecomeFirstResponder: Bool {
 pieGraphView.becomeFirstResponder()
 ```
 
+### Feedback
+#### draw(rect:) 함수는 뷰를 그리기 위해서 초당 60번까지도 반복해서 UIKit이 호출하는 메소드입니다.
+따라서 이런 메소드에서 반복적으로 계산을 하거나 접근하는 메소드가 있다면 비효율적인 구조가 됩니다.
+sum 같은 속성은 segments를 매번 reduce하고 있습니다. 초당 60번씩 호출할만한 값일까요?
+더구나 segments를 forEach로 반복하면서 접근하기 때문에 segments가 많을수록 느려질 것 같네요.
+
+- 전체 판매개수 데이터를 파이그래프에서 동적으로 계산하지 않고, 자판기->뷰컨트롤러->파이그래프로 전달하도록 변경
+
+#### View가 ViewController에게 노티를 보내서 결국 자기 자신의 크기를 바꾸는 구조가 적합할까요?
+그냥 self.frame을 바꾸는 것과 어떤 차이가 있나요? 또, UIView의 frame 과 bounds 차이점을 설명해보세요.
+덧붙여서 frame을 바꾸지 않고 bounds를 바꾼 이유가 궁금합니다.
+
+- frame은 상위뷰의 좌표 시스템을 이용하고, bounds는 자기자신의 좌표 시스템을 사용한다. frame은 상위 뷰에 상대적인 좌표를 가지고 있기 때문에 width나 height만 변경하면 좌상단 좌표는 고정인 채로 크기가 변경되기 때문에 중심점을 기준으로 변경하려면 frame의 leftTop 위치도 변경해줘야 한다.
+- 터치이벤트 moved 시 view frame 크기 변경.
+- 뷰 크기가 변경되면 bounds를 이용하여 원 그림.
+
+```swift
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+    status = touches.first?.phase
+    guard let beganPosition = beganPosition else { return }
+    guard let currPosition = touches.first?.location(in: self) else { return }
+    let prevWidth = frame.size.width
+    let prevHeight = frame.size.height
+    let movedDistance = currPosition.distance(from: beganPosition)
+    let scaleFactor: CGFloat = movedDistance/radius*20
+    // 원점과의 거리가 멀어졌다면 scaleFactor 만큼 뷰 크기 확대. 이 때, 부모 뷰의 경계를 넘으면 안 된다.
+    if currPosition.distance(from: origin)-beganPosition.distance(from: origin) > 0 {
+        guard frame.maxX < superview!.frame.maxX && frame.maxY < superview!.frame.maxY else { return }
+        frame.size.width += scaleFactor
+        frame.size.height += scaleFactor
+    } else if currPosition.distance(from: origin)-beganPosition.distance(from: origin) < 0 {
+        // 원점과의 거리가 가까워졌다면 scaleFactor 만큼 뷰 크기 축소.
+        guard radius > 30 else { return }
+        frame.size.width -= scaleFactor
+        frame.size.height -= scaleFactor
+    }
+    frame.origin.x -= (frame.size.width - prevWidth)/2
+    frame.origin.y -= (frame.size.height - prevHeight)/2
+    setNeedsDisplay()
+}
+```
+
+```swift
+// 원점. 프레임 크기와 상관없이 무조건 뷰의 중점.
+private var origin: CGPoint {
+    return CGPoint(x: bounds.width/2, y: bounds.height/2)
+}
+// 경계 부분이 잘릴 수 있으니 -6 정도로 여유를 준다.
+private var radius: CGFloat {
+    return CGFloat(min(bounds.width, bounds.height)/2-6)
+}
+```
+
+#### 데이터소스 프로토콜 활용
+- PieGraphView에 필요한 핵심 데이터들을 ViewController에서 세팅할 수 있도록 PieGraphDataSource 프로토콜 및 인터페이스 추가.
+- PieGraphView에 dataSource 프로퍼티 추가 및 인터페이스 활용.
+- AdminViewController가 PieGraphDataSource 프로토콜을 채택하여 인터페이스 구현. dataSource로 self 넘김.
+
+```swift
+protocol PieGraphDataSource {
+    func initialSegments() -> [Segment]?
+
+    func totalValues() -> Int?
+}
+```
+
+```swift
+class AdminViewController: UIViewController, PieGraphDataSource {
+	...
+	override func viewDidLoad() {
+		...
+		pieGraphView.dataSource = self
+		...
+	}
+}
+```
+
+```swift
+var dataSource: PieGraphDataSource? {
+    didSet {
+        originalFrame = frame
+        status = UITouchPhase.stationary
+        segments = dataSource?.initialSegments()
+        sum = dataSource?.totalValues()
+    }
+}
+```
+
+#### 보통 DataSource를 지정하는 시점과 뷰를 다시 그리는 시점은 분리하는 게 좋습니다.
+데이터소스가 있다고 해서 실제로 데이터가 없을수도 있고, 데이터소스에 데이터가 변경되면 다시 그리도록 알려줄 수 있어야 하기 때문입니다.
+
+- dataSource 세팅되면 segments, sum 데이터를 세팅하도록 수정
+- pieGraphView의 dataSource 세팅 위치를 viewDidLoad()로 변경
+
+
 ### 학습 내용
 >- **[Event와 Responder]()**
 >- **[UIView의 터치 이벤트]()**
