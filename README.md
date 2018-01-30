@@ -924,6 +924,6 @@ var dataSource: PieGraphDataSource? {
 
 
 ### 학습 내용
->- **[Event와 Responder]()**
->- **[UIView의 터치 이벤트]()**
->- **[Gesture Recognizer]()**
+>- **[Event와 Responder](https://github.com/undervineg/swift-vendingmachineapp/blob/undervineg/md/event_view_hierarchy.md)**
+>- **[UIView의 터치 이벤트](https://github.com/undervineg/swift-vendingmachineapp/blob/undervineg/md/touch_event.md)**
+>- **[Gesture Recognizer](https://github.com/undervineg/swift-vendingmachineapp/blob/undervineg/md/gesture_recognizer.md)**
